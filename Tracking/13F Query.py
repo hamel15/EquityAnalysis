@@ -1,18 +1,58 @@
 from sec_api import QueryApi
+import pandas as pd
+from datetime import datetime
 
-queryApi = QueryApi(api_key="ca463e956b32cb96b919e9af4444456049e47f3ab961bc9fac41c6fe2ed5c1ad")
+# Define your API key
+api_key = "ca463e956b32cb96b919e9af4444456049e47f3ab961bc9fac41c6fe2ed5c1ad"
 
-query = {
-    "query": "formType:\"13F-HR\" AND cik:1801265",
-    "from": "0",
-    "size": "10",
-    "sort": [{"filedAt": {"order": "desc"}}]
-}
+# Define CIKs
+ciks = ["949509", "1894571"]
 
-response = queryApi.get_filings(query)
+# Create a QueryApi instance
+queryApi = QueryApi(api_key=api_key)
 
-import json
+# List to store holdings data
+combined_holdings_list = []
 
-# response is a dict with multiple keys. The most important one is "filings".
-# response["filings"] is a list and includes all filings returned by the Query API.
-print(json.dumps(response["filings"][0], indent=2))
+# Loop through each CIK
+for cik in ciks:
+    # Define the query parameters for the current CIK
+    query = {
+        "query": f"formType:\"13F-HR\" AND cik:{cik}",
+        "from": "0",
+        "size": "1",
+        "sort": [{"filedAt": {"order": "desc"}}]
+    }
+
+    # Get filings using the Query API
+    response = queryApi.get_filings(query)
+
+    try:
+        # Extract relevant data from the response
+        company_name = response["filings"][0]["companyName"]
+        holdings_data = response["filings"][0]["holdings"]
+
+        # Convert the holdings data into rows and columns
+        for item in holdings_data:
+            ticker = item.get("ticker", "")
+            name_of_issuer = item.get("nameOfIssuer", "")
+            value = item.get("value", "")
+            title_of_class = item.get("titleOfClass", "")
+            put_call = item.get("putCall", "")
+            combined_holdings_list.append({"CIK": cik, "Company Name": company_name, "Ticker": ticker, "NameOfIssuer": name_of_issuer, "Value": value, "TitleOfClass": title_of_class, "Put/Call": put_call})
+    except KeyError:
+        print(f"No filings found for CIK: {cik}")
+
+# Create a DataFrame for combined holdings data
+combined_holdings_df = pd.DataFrame(combined_holdings_list)
+
+# Define the file path with a timestamp
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+file_name = f"13F_Results_{timestamp}.xlsx"
+file_path = f"C:\\Users\\tdham\\PycharmProjects\\EquityAnalysis\\Tracking\\Results\\{file_name}"
+
+# Save the DataFrame to an Excel file
+with pd.ExcelWriter(file_path) as writer:
+    combined_holdings_df.to_excel(writer, index=False, sheet_name="Combined Holdings")
+
+print(f"File saved to: {file_path}")
