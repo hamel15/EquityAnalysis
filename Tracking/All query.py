@@ -35,6 +35,8 @@ for cik in ciks:
         try:
             # Extract relevant data from the response
             company_name = response["filings"][0]["companyName"]
+            period_of_report = response["filings"][0]["periodOfReport"]
+            effectiveness_date = response["filings"][0]["effectivenessDate"]
             holdings_data = response["filings"][0]["holdings"]
 
             # Convert the holdings data into rows and columns
@@ -44,7 +46,7 @@ for cik in ciks:
                 value = item.get("value", "")
                 title_of_class = item.get("titleOfClass", "")
                 put_call = item.get("putCall", "")
-                combined_holdings_list.append({"CIK": cik, "Company Name": company_name, "Ticker": ticker, "NameOfIssuer": name_of_issuer, "Value": value, "TitleOfClass": title_of_class, "Put/Call": put_call})
+                combined_holdings_list.append({"CIK": cik, "Company Name": company_name, "Period of Report": period_of_report, "Effectiveness Date": effectiveness_date, "Ticker": ticker, "NameOfIssuer": name_of_issuer, "Value": value, "TitleOfClass": title_of_class, "Put/Call": put_call})
         except KeyError:
             print(f"No filings found for CIK: {cik}")
     else:
