@@ -49,9 +49,15 @@ for cik in ciks:
                     title_of_class = item.get("titleOfClass", "")
                     put_call = item.get("putCall", "")
                     if i == 0:
-                        combined_holdings_list_first.append({"CIK": cik, "Company Name": company_name, "Period of Report": period_of_report, "Effectiveness Date": effectiveness_date, "Ticker": ticker, "NameOfIssuer": name_of_issuer, "Value": value, "TitleOfClass": title_of_class, "Put/Call": put_call})
+                        combined_holdings_list_first.append(
+                            {"CIK": cik, "Company Name": company_name, "Period of Report": period_of_report,
+                             "Effectiveness Date": effectiveness_date, "Ticker": ticker, "NameOfIssuer": name_of_issuer,
+                             "Value": value, "TitleOfClass": title_of_class, "Put/Call": put_call})
                     elif i == 1:
-                        combined_holdings_list_second.append({"CIK": cik, "Company Name": company_name, "Period of Report": period_of_report, "Effectiveness Date": effectiveness_date, "Ticker": ticker, "NameOfIssuer": name_of_issuer, "Value": value, "TitleOfClass": title_of_class, "Put/Call": put_call})
+                        combined_holdings_list_second.append(
+                            {"CIK": cik, "Company Name": company_name, "Period of Report": period_of_report,
+                             "Effectiveness Date": effectiveness_date, "Ticker": ticker, "NameOfIssuer": name_of_issuer,
+                             "Value": value, "TitleOfClass": title_of_class, "Put/Call": put_call})
             except KeyError:
                 print(f"No filings found for CIK: {cik}")
     else:
@@ -72,27 +78,22 @@ with pd.ExcelWriter(file_path) as writer:
     combined_holdings_df_second.to_excel(writer, index=False, sheet_name="Second Most Recent Filings")
 
     # Perform operations to generate the lists (New, Exits, Adds, Reduces)
-    new_list = combined_holdings_df_first[~combined_holdings_df_first["Ticker"].isin(combined_holdings_df_second["Ticker"])].copy()
-    exits_list = combined_holdings_df_second[~combined_holdings_df_second["Ticker"].isin(combined_holdings_df_first["Ticker"])].copy()
-    exits_list["Value"] = 0
+    new_list = combined_holdings_df_second[
+        ~combined_holdings_df_second["Ticker"].isin(combined_holdings_df_first["Ticker"])].copy()
+    exits_list = combined_holdings_df_first[
+        ~combined_holdings_df_first["Ticker"].isin(combined_holdings_df_second["Ticker"])].copy()
 
-    if "Value_second" in combined_holdings_df_first.columns:  # Check if column exists
-        adds_grouped = combined_holdings_df_first.groupby("Ticker")["Value"].sum().reset_index()
-        adds_grouped.columns = ["Ticker", "First Filing Value"]
-        adds_grouped = adds_grouped.merge(combined_holdings_df_second.groupby("Ticker")["Value"].sum().reset_index(), on="Ticker", suffixes=["", "_second"])
-        adds_grouped["Value Difference"] = adds_grouped["First Filing Value"] - adds_grouped["Value_second"]
-        adds_list = adds_grouped[adds_grouped["Value Difference"] > 0][["Ticker", "Value Difference"]]
-    else:
-        adds_list = pd.DataFrame(columns=["Ticker", "Value Difference"])
+    adds_list = pd.merge(combined_holdings_df_first, combined_holdings_df_second, on="Ticker", how="inner",
+                         suffixes=('_first', '_second'))
+    adds_list = adds_list[(adds_list["Value_second"] > adds_list["Value_first"])][
+        ["CIK_first", "Company Name_first", "Ticker", "NameOfIssuer_first", "Value_second", "Value_first"]]
+    adds_list["Value Difference"] = adds_list["Value_second"] - adds_list["Value_first"]
 
-    if "Value_first" in combined_holdings_df_second.columns:  # Check if column exists
-        reduces_grouped = combined_holdings_df_second.groupby("Ticker")["Value"].sum().reset_index()
-        reduces_grouped.columns = ["Ticker", "Second Filing Value"]
-        reduces_grouped = reduces_grouped.merge(combined_holdings_df_first.groupby("Ticker")["Value"].sum().reset_index(), on="Ticker", suffixes=["", "_first"])
-        reduces_grouped["Value Difference"] = reduces_grouped["Second Filing Value"] - reduces_grouped["Value_first"]
-        reduces_list = reduces_grouped[reduces_grouped["Value Difference"] > 0][["Ticker", "Value Difference"]]
-    else:
-        reduces_list = pd.DataFrame(columns=["Ticker", "Value Difference"])
+    reduces_list = pd.merge(combined_holdings_df_first, combined_holdings_df_second, on="Ticker", how="inner",
+                            suffixes=('_first', '_second'))
+    reduces_list = reduces_list[(reduces_list["Value_second"] < reduces_list["Value_first"])][
+        ["CIK_first", "Company Name_first", "Ticker", "NameOfIssuer_first", "Value_second", "Value_first"]]
+    reduces_list["Value Difference"] = reduces_list["Value_first"] - reduces_list["Value_second"]
 
     # Save the lists to separate tabs
     new_list.to_excel(writer, index=False, sheet_name="New")
